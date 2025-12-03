@@ -18,7 +18,6 @@ export enum AppView {
 export interface AppSettings {
   morningAlertTime: string; // HH:MM
   eveningAlertTime: string; // HH:MM
-  userName: string;
 }
 
 export interface DaySummary {
@@ -27,3 +26,5 @@ export interface DaySummary {
   completed: number;
   summaryText?: string;
 }
+
+export type DailyNoteMap = Record<string, string>; // Key: YYYY-MM-DD, Value: Note text

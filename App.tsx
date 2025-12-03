@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Home, Calendar as CalendarIcon, Clock, Settings, Bell, Zap, CheckCircle2 } from 'lucide-react';
+import { Plus, Home, Calendar as CalendarIcon, Clock, Settings, Bell, Zap, CheckCircle2, AlertTriangle, Trash2, PenLine } from 'lucide-react';
 import TaskItem from './components/TaskItem';
 import HistoryView from './components/HistoryView';
-import { Task, AppView, AppSettings } from './types';
+import { Task, AppView, AppSettings, DailyNoteMap } from './types';
 import * as storage from './services/storageService';
 import * as gemini from './services/geminiService';
 
 const App: React.FC = () => {
   // State
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [dailyNotes, setDailyNotes] = useState<DailyNoteMap>({});
   const [currentView, setCurrentView] = useState<AppView>(AppView.TODAY);
   const [newTaskText, setNewTaskText] = useState('');
   const [settings, setSettings] = useState<AppSettings>(storage.getSettings());
+  const [showStorageWarning, setShowStorageWarning] = useState(false);
   
+  // Storage Full Modal State
+  const [showStorageFullModal, setShowStorageFullModal] = useState(false);
+
   // Future Planning State
   const [selectedDate, setSelectedDate] = useState<string>(storage.getLocalDateStr());
   
@@ -21,25 +26,59 @@ const App: React.FC = () => {
   const [showEveningReview, setShowEveningReview] = useState(false);
   const [morningMessage, setMorningMessage] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
   
   // Morning specific input
   const [morningInputText, setMorningInputText] = useState('');
 
+  // Evening specific input (Daily Reflection)
+  const [eveningNoteText, setEveningNoteText] = useState('');
+
   // Initialize
   useEffect(() => {
-    storage.cleanupOldData();
     const loadedTasks = storage.getTasks();
+    const loadedNotes = storage.getDailyNotes();
     setTasks(loadedTasks);
+    setDailyNotes(loadedNotes);
     
     checkRoutine(loadedTasks);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Save on change
+  // Save on change with storage full handling
   useEffect(() => {
-    storage.saveTasks(tasks);
+    const success = storage.saveTasks(tasks);
+    if (!success) {
+        setShowStorageWarning(true);
+        setShowStorageFullModal(true); // Trigger the prompt
+    } else {
+        setShowStorageWarning(false);
+        setShowStorageFullModal(false);
+    }
   }, [tasks]);
+
+  // Save notes on change
+  useEffect(() => {
+    const success = storage.saveDailyNotes(dailyNotes);
+    if (!success) {
+        setShowStorageWarning(true);
+        setShowStorageFullModal(true);
+    }
+  }, [dailyNotes]);
+
+  const handleStorageCleanup = () => {
+      const { updatedTasks, updatedNotes, deletedMonth } = storage.deleteOldestMonthRecords(tasks, dailyNotes);
+      if (deletedMonth) {
+          setTasks(updatedTasks);
+          setDailyNotes(updatedNotes);
+          // Alert is optional, but confirms action
+          // alert(`${deletedMonth} 기록이 삭제되었습니다.`);
+          setShowStorageFullModal(false);
+      } else {
+          // Should rarely happen if storage is full but empty tasks
+          alert("삭제할 과거 기록이 없습니다.");
+          setShowStorageFullModal(false);
+      }
+  };
 
   const checkRoutine = async (currentTasks: Task[]) => {
     const today = storage.getLocalDateStr();
@@ -51,11 +90,9 @@ const App: React.FC = () => {
     );
 
     if (unconfirmedPlans.length > 0) {
-      setIsAiLoading(true);
-      setShowMorningBrief(true);
-      const msg = await gemini.generateMorningBriefing(unconfirmedPlans, settings.userName);
+      const msg = await gemini.generateMorningBriefing(unconfirmedPlans);
       setMorningMessage(msg);
-      setIsAiLoading(false);
+      setShowMorningBrief(true);
     }
   };
 
@@ -106,6 +143,17 @@ const App: React.FC = () => {
     setShowMorningBrief(false);
   };
 
+  const finishEveningReview = () => {
+      const today = storage.getLocalDateStr();
+      if (eveningNoteText.trim()) {
+          setDailyNotes(prev => ({
+              ...prev,
+              [today]: eveningNoteText.trim()
+          }));
+      }
+      setShowEveningReview(false);
+  };
+
   // Handle Enter key for Korean IME
   const handleKeyDown = (e: React.KeyboardEvent, action: () => void) => {
     if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
@@ -120,27 +168,21 @@ const App: React.FC = () => {
     const today = storage.getLocalDateStr();
     const todaysTasks = tasks.filter(t => t.date === today);
     
-    setIsAiLoading(true);
+    const msg = await gemini.generateMorningBriefing(todaysTasks);
+    setMorningMessage(msg);
     setShowMorningBrief(true);
-    
-    if (todaysTasks.length === 0) {
-       setMorningMessage("좋은 아침입니다! 오늘 예정된 일정이 없네요. 계획을 세워볼까요?");
-    } else {
-       const msg = await gemini.generateMorningBriefing(todaysTasks, settings.userName);
-       setMorningMessage(msg);
-    }
-    setIsAiLoading(false);
   };
 
   const triggerEveningRoutine = async () => {
     const today = storage.getLocalDateStr();
     const todaysTasks = tasks.filter(t => t.date === today);
     
-    setIsAiLoading(true);
-    setShowEveningReview(true);
-    const msg = await gemini.generateDailyReview(todaysTasks, settings.userName);
+    // Set existing note if any
+    setEveningNoteText(dailyNotes[today] || '');
+
+    const msg = await gemini.generateDailyReview(todaysTasks);
     setReviewMessage(msg);
-    setIsAiLoading(false);
+    setShowEveningReview(true);
   };
 
   // --- Views ---
@@ -154,6 +196,23 @@ const App: React.FC = () => {
 
     return (
       <div className="space-y-6 pb-24">
+        {/* Storage Warning Banner (Visible if user cancels modal) */}
+        {showStorageWarning && !showStorageFullModal && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
+                <AlertTriangle size={18} />
+                <div className="text-sm">
+                    <p className="font-bold">저장 공간 부족</p>
+                    <p>저장에 실패했습니다. 공간을 확보해주세요.</p>
+                </div>
+                <button 
+                  onClick={() => setShowStorageFullModal(true)}
+                  className="ml-auto text-xs bg-red-100 hover:bg-red-200 px-2 py-1 rounded"
+                >
+                  해결하기
+                </button>
+            </div>
+        )}
+
         {/* Header / Progress */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
            <div className="flex justify-between items-center mb-4">
@@ -282,20 +341,6 @@ const App: React.FC = () => {
           </h2>
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">사용자 이름</label>
-              <input 
-                type="text" 
-                value={settings.userName}
-                onChange={(e) => {
-                   const newSettings = { ...settings, userName: e.target.value };
-                   setSettings(newSettings);
-                   storage.saveSettings(newSettings);
-                }}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg"
-              />
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">아침 알림 시간</label>
@@ -343,6 +388,25 @@ const App: React.FC = () => {
                 </button>
               </div>
             </div>
+            
+            <div className="pt-6 border-t border-slate-100">
+                <h3 className="font-semibold text-slate-900 mb-2">데이터 관리</h3>
+                <p className="text-xs text-slate-500">
+                    데이터는 브라우저 내부에 저장되며, 저장 공간이 가득 찰 경우 알림이 표시됩니다.
+                </p>
+                {showStorageWarning && (
+                     <div className="mt-2 text-xs text-red-500 font-bold flex items-center gap-1">
+                         <AlertTriangle size={12} />
+                         현재 저장 공간이 부족합니다.
+                         <button 
+                           onClick={() => setShowStorageFullModal(true)}
+                           className="underline ml-1"
+                         >
+                           공간 확보하기
+                         </button>
+                     </div>
+                )}
+            </div>
           </div>
         </div>
       </div>
@@ -364,7 +428,15 @@ const App: React.FC = () => {
       <div className="flex-1 overflow-y-auto px-4 py-6 scrollbar-hide">
         {currentView === AppView.TODAY && renderToday()}
         {currentView === AppView.FUTURE && renderFuture()}
-        {currentView === AppView.HISTORY && <HistoryView tasks={tasks} />}
+        {currentView === AppView.HISTORY && (
+            <HistoryView 
+                tasks={tasks} 
+                dailyNotes={dailyNotes}
+                onDelete={deleteTask}
+                onToggle={toggleTask}
+                onUpdateMemo={updateMemo}
+            />
+        )}
         {currentView === AppView.SETTINGS && renderSettings()}
       </div>
 
@@ -402,6 +474,39 @@ const App: React.FC = () => {
 
       {/* --- MODALS --- */}
 
+      {/* Storage Full Warning Modal */}
+      {showStorageFullModal && (
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-6 animate-in fade-in duration-200">
+           <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6">
+              <div className="flex items-center gap-3 mb-4 text-red-500">
+                <AlertTriangle size={24} />
+                <h3 className="text-xl font-bold text-slate-900">저장 공간 부족</h3>
+              </div>
+              
+              <p className="text-slate-600 mb-6 leading-relaxed">
+                  저장 공간이 가득 차서 새로운 내용을 저장할 수 없습니다.<br/>
+                  <span className="font-semibold text-slate-800">가장 오래된 월의 기록을 삭제</span>하여 공간을 확보하시겠습니까?
+              </p>
+
+              <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowStorageFullModal(false)}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition-colors"
+                  >
+                    나중에
+                  </button>
+                  <button 
+                    onClick={handleStorageCleanup}
+                    className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-red-200 flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={18} />
+                    삭제하기
+                  </button>
+              </div>
+           </div>
+        </div>
+      )}
+
       {/* Morning Briefing Modal */}
       {showMorningBrief && (
         <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in duration-200">
@@ -412,14 +517,6 @@ const App: React.FC = () => {
               </div>
               
               <div className="min-h-[100px] mb-4">
-                {isAiLoading ? (
-                  <div className="flex items-center gap-2 text-slate-400 animate-pulse">
-                     <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-                     <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-                     <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
-                     <span className="text-sm">일정을 준비하고 있습니다...</span>
-                  </div>
-                ) : (
                   <>
                     <p className="text-slate-600 italic mb-4">"{morningMessage}"</p>
                     
@@ -468,7 +565,6 @@ const App: React.FC = () => {
                         </button>
                     </div>
                   </>
-                )}
               </div>
 
               <button 
@@ -491,18 +587,10 @@ const App: React.FC = () => {
               </div>
               
               <div className="min-h-[100px] mb-6">
-                {isAiLoading ? (
-                  <div className="flex items-center gap-2 text-slate-400 animate-pulse">
-                     <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-                     <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-                     <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
-                     <span className="text-sm">하루를 분석하고 있습니다...</span>
-                  </div>
-                ) : (
                   <div className="prose prose-sm text-slate-600">
                     <p className="italic text-lg text-slate-800 mb-6 font-medium">"{reviewMessage}"</p>
                     
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6">
                         <div className="flex justify-between items-end mb-2">
                             <span className="text-xs font-bold text-slate-500 uppercase">진행률</span>
                             <span className="text-lg font-bold text-indigo-600">
@@ -518,16 +606,35 @@ const App: React.FC = () => {
                                 : 0
                             }%`}}></div>
                         </div>
-                        <p className="text-xs text-center text-slate-400 mt-2">
-                            완료된 항목은 기록에 저장됩니다.
-                        </p>
+                    </div>
+
+                    {/* Daily Reflection Input */}
+                    <div className="mb-2">
+                        <label className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-2">
+                            <PenLine size={16} />
+                            오늘 하루는 어떠셨나요?
+                        </label>
+                        <textarea 
+                            value={eveningNoteText}
+                            onChange={(e) => {
+                                if (e.target.value.length <= 140) {
+                                    setEveningNoteText(e.target.value);
+                                }
+                            }}
+                            placeholder="오늘 하루를 140자 이내로 정리해보세요..."
+                            className="w-full h-24 p-3 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                        />
+                        <div className="text-right mt-1">
+                            <span className={`text-xs ${eveningNoteText.length === 140 ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
+                                {eveningNoteText.length} / 140
+                            </span>
+                        </div>
                     </div>
                   </div>
-                )}
               </div>
 
               <button 
-                onClick={() => setShowEveningReview(false)}
+                onClick={finishEveningReview}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-indigo-200"
               >
                 종료 및 휴식

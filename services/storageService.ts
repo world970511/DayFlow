@@ -1,7 +1,8 @@
-import { Task, AppSettings } from '../types';
+import { Task, AppSettings, DailyNoteMap } from '../types';
 
 const TASKS_KEY = 'dayflow_tasks';
 const SETTINGS_KEY = 'dayflow_settings';
+const NOTES_KEY = 'dayflow_notes';
 
 // Utility to get local date string YYYY-MM-DD
 export const getLocalDateStr = (d: Date = new Date()): string => {
@@ -21,8 +22,69 @@ export const getTasks = (): Task[] => {
   }
 };
 
-export const saveTasks = (tasks: Task[]) => {
-  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+export const saveTasks = (tasks: Task[]): boolean => {
+  try {
+    localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+    return true;
+  } catch (e) {
+    if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+        console.error("Storage full");
+        return false;
+    }
+    return false;
+  }
+};
+
+export const getDailyNotes = (): DailyNoteMap => {
+  try {
+    const data = localStorage.getItem(NOTES_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch (e) {
+    return {};
+  }
+};
+
+export const saveDailyNotes = (notes: DailyNoteMap): boolean => {
+  try {
+    localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+    return true;
+  } catch (e) {
+     if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+        return false;
+    }
+    return false;
+  }
+};
+
+export const deleteOldestMonthRecords = (tasks: Task[], notes: DailyNoteMap): { updatedTasks: Task[], updatedNotes: DailyNoteMap, deletedMonth: string | null } => {
+    if (tasks.length === 0 && Object.keys(notes).length === 0) return { updatedTasks: [], updatedNotes: {}, deletedMonth: null };
+    
+    // Find min date from tasks
+    let minDate = tasks.length > 0 ? tasks[0].date : '';
+    for(const t of tasks) {
+        if(!minDate || t.date < minDate) minDate = t.date;
+    }
+
+    // Check notes for older dates
+    for(const date of Object.keys(notes)) {
+        if(!minDate || date < minDate) minDate = date;
+    }
+
+    if (!minDate) return { updatedTasks: [], updatedNotes: {}, deletedMonth: null };
+
+    // Extract YYYY-MM
+    const targetMonth = minDate.substring(0, 7);
+    
+    const updatedTasks = tasks.filter(t => !t.date.startsWith(targetMonth));
+    
+    const updatedNotes = { ...notes };
+    for(const date of Object.keys(updatedNotes)) {
+        if(date.startsWith(targetMonth)) {
+            delete updatedNotes[date];
+        }
+    }
+
+    return { updatedTasks, updatedNotes, deletedMonth: targetMonth };
 };
 
 export const getSettings = (): AppSettings => {
@@ -30,36 +92,16 @@ export const getSettings = (): AppSettings => {
     const data = localStorage.getItem(SETTINGS_KEY);
     return data ? JSON.parse(data) : {
       morningAlertTime: "09:00",
-      eveningAlertTime: "20:00",
-      userName: "User"
+      eveningAlertTime: "20:00"
     };
   } catch (e) {
     return {
       morningAlertTime: "09:00",
-      eveningAlertTime: "20:00",
-      userName: "User"
+      eveningAlertTime: "20:00"
     };
   }
 };
 
 export const saveSettings = (settings: AppSettings) => {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-};
-
-// Cleanup tasks older than 30 days
-export const cleanupOldData = () => {
-  const tasks = getTasks();
-  const today = new Date();
-  today.setDate(today.getDate() - 30);
-  const limitDateStr = getLocalDateStr(today);
-
-  const filteredTasks = tasks.filter(task => {
-    // task.date is YYYY-MM-DD string. String comparison works for ISO format dates.
-    return task.date >= limitDateStr;
-  });
-
-  if (filteredTasks.length !== tasks.length) {
-    saveTasks(filteredTasks);
-    console.log("Cleaned up old data");
-  }
 };
