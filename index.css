@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@source "./index.html";
+@source "./*.{js,ts,jsx,tsx}";
+@source "./components/**/*.{js,ts,jsx,tsx}";
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+}
+
+/* Custom styles */
+body {
+  font-family: var(--font-sans);
+}

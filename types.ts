@@ -18,6 +18,7 @@ export enum AppView {
 export interface AppSettings {
   morningAlertTime: string; // HH:MM
   eveningAlertTime: string; // HH:MM
+  notificationsEnabled: boolean; // 알림 활성화 여부
 }
 
 export interface DaySummary {

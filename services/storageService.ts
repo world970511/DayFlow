@@ -92,12 +92,14 @@ export const getSettings = (): AppSettings => {
     const data = localStorage.getItem(SETTINGS_KEY);
     return data ? JSON.parse(data) : {
       morningAlertTime: "09:00",
-      eveningAlertTime: "20:00"
+      eveningAlertTime: "20:00" ,
+      notificationsEnabled: true
     };
   } catch (e) {
     return {
       morningAlertTime: "09:00",
-      eveningAlertTime: "20:00"
+      eveningAlertTime: "20:00",
+      notificationsEnabled: true
     };
   }
 };
