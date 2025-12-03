@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { Task } from '../types';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { Calendar } from 'lucide-react';
+import { getLocalDateStr } from '../services/storageService';
 
 interface HistoryViewProps {
   tasks: Task[];
@@ -13,11 +14,12 @@ const HistoryView: React.FC<HistoryViewProps> = ({ tasks }) => {
     const groups: Record<string, { total: number; completed: number }> = {};
     const today = new Date();
     
-    // Initialize last 30 days with empty data
+    // Initialize last 30 days with empty data using local date strings
     for (let i = 0; i < 30; i++) {
         const d = new Date();
         d.setDate(today.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
+        // Use the same helper as App.tsx to ensure keys match
+        const dateStr = getLocalDateStr(d);
         groups[dateStr] = { total: 0, completed: 0 };
     }
 
@@ -40,9 +42,9 @@ const HistoryView: React.FC<HistoryViewProps> = ({ tasks }) => {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
                 <Calendar className="mr-2 text-blue-500" size={20} />
-                Monthly Overview
+                월간 기록
             </h2>
-            <p className="text-sm text-slate-500 mb-6">Records are automatically deleted after 30 days.</p>
+            <p className="text-sm text-slate-500 mb-6">기록은 30일이 지나면 자동으로 삭제됩니다.</p>
             
             <div className="space-y-4">
                 {stats.map((day) => {
@@ -51,8 +53,8 @@ const HistoryView: React.FC<HistoryViewProps> = ({ tasks }) => {
 
                     const percentage = Math.round((day.completed / day.total) * 100) || 0;
                     const data = [
-                        { name: 'Incomplete', value: day.total - day.completed },
-                        { name: 'Completed', value: day.completed },
+                        { name: '미완료', value: day.total - day.completed },
+                        { name: '완료', value: day.completed },
                     ];
 
                     return (
@@ -96,7 +98,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ tasks }) => {
                 })}
                 {stats.every(d => d.total === 0) && (
                     <div className="text-center py-10 text-slate-400">
-                        No activity recorded in the last 30 days.
+                        지난 30일 동안 기록된 활동이 없습니다.
                     </div>
                 )}
             </div>

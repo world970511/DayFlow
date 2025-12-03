@@ -46,7 +46,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onDelete, onUpdateM
            <button 
             onClick={() => setIsExpanded(!isExpanded)}
             className={`p-2 rounded-full transition-colors ${task.memo ? 'text-indigo-500 bg-indigo-50' : 'text-slate-300 hover:text-indigo-500 hover:bg-indigo-50'}`}
-            title="Add Memo"
+            title="메모 추가"
           >
             <StickyNote size={18} />
           </button>
@@ -65,12 +65,12 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onDelete, onUpdateM
       {isExpanded && (
         <div className="px-4 pb-4 pl-12 animate-in slide-in-from-top-2 duration-200">
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                Memo / Notes
+                메모 / 노트
             </label>
             <textarea
                 value={task.memo}
                 onChange={(e) => onUpdateMemo(task.id, e.target.value)}
-                placeholder="Details, thoughts, or reflections..."
+                placeholder="상세 내용, 생각, 회고 등을 적어보세요..."
                 className="w-full text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none resize-none h-20"
                 readOnly={readonly}
                 autoFocus

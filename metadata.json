@@ -1,5 +1,5 @@
 {
-  "name": "DayFlow - Easy Schedule Manager",
-  "description": "간단한 일정 관리용 앱",
+  "name": "DayFlow - 하루 일정 관리",
+  "description": "간단하고 직관적인 일정 관리 앱\n지정된 시간에 오늘 무엇을 할 지를 정리하고,  무엇을 했는지 확인할 수 있습니다.\n",
   "requestFramePermissions": []
 }

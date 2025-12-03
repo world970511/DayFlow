@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Home, Calendar as CalendarIcon, Clock, Settings, Bell, Zap, CheckCircle2, Edit3 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Home, Calendar as CalendarIcon, Clock, Settings, Bell, Zap, CheckCircle2 } from 'lucide-react';
 import TaskItem from './components/TaskItem';
 import HistoryView from './components/HistoryView';
 import { Task, AppView, AppSettings } from './types';
@@ -14,7 +14,7 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>(storage.getSettings());
   
   // Future Planning State
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(storage.getLocalDateStr());
   
   // Modals / Overlays
   const [showMorningBrief, setShowMorningBrief] = useState(false);
@@ -42,7 +42,7 @@ const App: React.FC = () => {
   }, [tasks]);
 
   const checkRoutine = async (currentTasks: Task[]) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = storage.getLocalDateStr();
     
     // Check for Morning Logic:
     // If there are unconfirmed future plans for today
@@ -61,11 +61,18 @@ const App: React.FC = () => {
 
   // --- CRUD Operations ---
 
+  const generateId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  };
+
   const addTask = (date: string, isFuture: boolean, text: string = newTaskText) => {
     if (!text.trim()) return;
     
     const newTask: Task = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       text: text,
       completed: false,
       memo: '',
@@ -92,24 +99,32 @@ const App: React.FC = () => {
   };
 
   const confirmMorningPlan = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = storage.getLocalDateStr();
     setTasks(prev => prev.map(t => 
       (t.date === today && t.isFuturePlan) ? { ...t, isConfirmed: true } : t
     ));
     setShowMorningBrief(false);
   };
 
+  // Handle Enter key for Korean IME
+  const handleKeyDown = (e: React.KeyboardEvent, action: () => void) => {
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+        e.preventDefault();
+        action();
+    }
+  };
+
   // --- Simulations ---
 
   const triggerMorningRoutine = async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = storage.getLocalDateStr();
     const todaysTasks = tasks.filter(t => t.date === today);
     
     setIsAiLoading(true);
     setShowMorningBrief(true);
     
     if (todaysTasks.length === 0) {
-       setMorningMessage("Good morning! Your schedule is clear. Let's plan your day.");
+       setMorningMessage("좋은 아침입니다! 오늘 예정된 일정이 없네요. 계획을 세워볼까요?");
     } else {
        const msg = await gemini.generateMorningBriefing(todaysTasks, settings.userName);
        setMorningMessage(msg);
@@ -118,7 +133,7 @@ const App: React.FC = () => {
   };
 
   const triggerEveningRoutine = async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = storage.getLocalDateStr();
     const todaysTasks = tasks.filter(t => t.date === today);
     
     setIsAiLoading(true);
@@ -131,7 +146,7 @@ const App: React.FC = () => {
   // --- Views ---
 
   const renderToday = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = storage.getLocalDateStr();
     // Filter tasks for today that are confirmed OR manually added (isConfirmed is true for manual adds)
     const todaysTasks = tasks.filter(t => t.date === today && t.isConfirmed);
     const completedCount = todaysTasks.filter(t => t.completed).length;
@@ -143,9 +158,9 @@ const App: React.FC = () => {
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
            <div className="flex justify-between items-center mb-4">
               <div>
-                <h1 className="text-2xl font-bold text-slate-800">Today's Focus</h1>
+                <h1 className="text-2xl font-bold text-slate-800">오늘의 할 일</h1>
                 <p className="text-slate-500">
-                  {completedCount} of {todaysTasks.length} tasks completed
+                  {todaysTasks.length}개 중 {completedCount}개 완료
                 </p>
               </div>
               <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-bold text-sm border-2 border-blue-100">
@@ -164,8 +179,8 @@ const App: React.FC = () => {
              type="text" 
              value={newTaskText}
              onChange={(e) => setNewTaskText(e.target.value)}
-             onKeyDown={(e) => e.key === 'Enter' && addTask(today, false)}
-             placeholder="Write what needs to be done..."
+             onKeyDown={(e) => handleKeyDown(e, () => addTask(today, false))}
+             placeholder="오늘 해야 할 일을 적어주세요..."
              className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
            />
            <button 
@@ -180,8 +195,8 @@ const App: React.FC = () => {
         <div className="space-y-1 min-h-[200px]">
           {todaysTasks.length === 0 && (
             <div className="text-center py-10 text-slate-400">
-              <p>Your list is empty.</p>
-              <p className="text-xs mt-2">Add a task to get started!</p>
+              <p>할 일이 없습니다.</p>
+              <p className="text-xs mt-2">새로운 할 일을 추가해보세요!</p>
             </div>
           )}
           {todaysTasks.map(task => (
@@ -202,8 +217,9 @@ const App: React.FC = () => {
     // Simple future date selector
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const minDate = tomorrow.toISOString().split('T')[0];
+    const minDate = storage.getLocalDateStr(tomorrow);
 
+    // Ensure selectedDate is at least today if not set, though state init handles this.
     const tasksForSelectedDate = tasks.filter(t => t.date === selectedDate);
 
     return (
@@ -211,11 +227,11 @@ const App: React.FC = () => {
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
           <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
             <CalendarIcon className="mr-2 text-indigo-500" size={20} />
-            Future Planning
+            미래 계획
           </h2>
-          <p className="text-sm text-slate-500 mb-4">Book tasks for later. You'll be asked to confirm them on the day.</p>
+          <p className="text-sm text-slate-500 mb-4">미리 일정을 예약하세요. 당일 아침에 확인 알림을 드립니다.</p>
           
-          <label className="block text-sm font-medium text-slate-700 mb-1">Select Date</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">날짜 선택</label>
           <input 
             type="date" 
             min={minDate}
@@ -229,21 +245,21 @@ const App: React.FC = () => {
                type="text" 
                value={newTaskText}
                onChange={(e) => setNewTaskText(e.target.value)}
-               onKeyDown={(e) => e.key === 'Enter' && addTask(selectedDate, true)}
-               placeholder={`Tasks for ${selectedDate}...`}
+               onKeyDown={(e) => handleKeyDown(e, () => addTask(selectedDate, true))}
+               placeholder={`${selectedDate}에 할 일...`}
                className="flex-1 px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
              />
              <button 
               onClick={() => addTask(selectedDate, true)}
               className="bg-indigo-600 text-white p-2 px-4 rounded-lg hover:bg-indigo-700"
              >
-               Add
+               추가
              </button>
           </div>
 
-          <h3 className="font-semibold text-slate-700 mb-2">Planned for {selectedDate}:</h3>
+          <h3 className="font-semibold text-slate-700 mb-2">{selectedDate} 예약된 일정:</h3>
           <div className="space-y-2">
-            {tasksForSelectedDate.length === 0 && <p className="text-sm text-slate-400 italic">Nothing planned yet.</p>}
+            {tasksForSelectedDate.length === 0 && <p className="text-sm text-slate-400 italic">예약된 일정이 없습니다.</p>}
             {tasksForSelectedDate.map(task => (
               <div key={task.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
                  <span className="text-slate-700">{task.text}</span>
@@ -262,12 +278,12 @@ const App: React.FC = () => {
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
           <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
             <Settings className="mr-2 text-slate-500" size={20} />
-            Settings
+            설정
           </h2>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Your Name</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">사용자 이름</label>
               <input 
                 type="text" 
                 value={settings.userName}
@@ -282,7 +298,7 @@ const App: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Morning Alert</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">아침 알림 시간</label>
                 <input 
                   type="time" 
                   value={settings.morningAlertTime}
@@ -295,7 +311,7 @@ const App: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Evening Alert</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">저녁 알림 시간</label>
                 <input 
                   type="time" 
                   value={settings.eveningAlertTime}
@@ -310,20 +326,20 @@ const App: React.FC = () => {
             </div>
 
             <div className="pt-6 border-t border-slate-100">
-              <h3 className="font-semibold text-slate-900 mb-2">Simulate Alerts (Demo)</h3>
-              <p className="text-xs text-slate-500 mb-3">Manually trigger the alerts to test the workflow.</p>
+              <h3 className="font-semibold text-slate-900 mb-2">알림 테스트 (데모)</h3>
+              <p className="text-xs text-slate-500 mb-3">알림 기능을 수동으로 실행해볼 수 있습니다.</p>
               <div className="flex gap-2">
                 <button 
                   onClick={() => { setCurrentView(AppView.TODAY); triggerMorningRoutine(); }}
                   className="flex-1 bg-amber-100 text-amber-700 px-4 py-2 rounded-lg font-medium hover:bg-amber-200 transition-colors flex items-center justify-center gap-2"
                 >
-                  <Bell size={16} /> Morning
+                  <Bell size={16} /> 아침
                 </button>
                 <button 
                   onClick={() => { setCurrentView(AppView.TODAY); triggerEveningRoutine(); }}
                   className="flex-1 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg font-medium hover:bg-indigo-200 transition-colors flex items-center justify-center gap-2"
                 >
-                  <Bell size={16} /> Evening
+                  <Bell size={16} /> 저녁
                 </button>
               </div>
             </div>
@@ -340,7 +356,7 @@ const App: React.FC = () => {
       <div className="px-6 pt-8 pb-2 flex justify-between items-center bg-white border-b border-slate-100 z-10">
         <span className="text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">DayFlow</span>
         <div className="text-sm font-medium text-slate-500">
-           {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+           {new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
         </div>
       </div>
 
@@ -359,28 +375,28 @@ const App: React.FC = () => {
           className={`flex flex-col items-center gap-1 ${currentView === AppView.TODAY ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
         >
           <Home size={24} strokeWidth={currentView === AppView.TODAY ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Today</span>
+          <span className="text-[10px] font-medium">오늘</span>
         </button>
         <button 
           onClick={() => setCurrentView(AppView.FUTURE)}
           className={`flex flex-col items-center gap-1 ${currentView === AppView.FUTURE ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
         >
           <CalendarIcon size={24} strokeWidth={currentView === AppView.FUTURE ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Plan</span>
+          <span className="text-[10px] font-medium">계획</span>
         </button>
         <button 
           onClick={() => setCurrentView(AppView.HISTORY)}
           className={`flex flex-col items-center gap-1 ${currentView === AppView.HISTORY ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
         >
           <Clock size={24} strokeWidth={currentView === AppView.HISTORY ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">History</span>
+          <span className="text-[10px] font-medium">기록</span>
         </button>
         <button 
           onClick={() => setCurrentView(AppView.SETTINGS)}
           className={`flex flex-col items-center gap-1 ${currentView === AppView.SETTINGS ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
         >
           <Settings size={24} strokeWidth={currentView === AppView.SETTINGS ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Settings</span>
+          <span className="text-[10px] font-medium">설정</span>
         </button>
       </div>
 
@@ -392,7 +408,7 @@ const App: React.FC = () => {
            <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6">
               <div className="flex items-center gap-3 mb-4 text-amber-500">
                 <Zap className="fill-current" />
-                <h3 className="text-xl font-bold text-slate-900">Morning Check-in</h3>
+                <h3 className="text-xl font-bold text-slate-900">아침 브리핑</h3>
               </div>
               
               <div className="min-h-[100px] mb-4">
@@ -401,7 +417,7 @@ const App: React.FC = () => {
                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
-                     <span className="text-sm">Preparing your schedule...</span>
+                     <span className="text-sm">일정을 준비하고 있습니다...</span>
                   </div>
                 ) : (
                   <>
@@ -410,11 +426,11 @@ const App: React.FC = () => {
                     {/* Task Verification List */}
                     <div className="bg-slate-50 rounded-xl p-3 mb-4">
                         <div className="flex justify-between items-center mb-2">
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Reserved Tasks</p>
-                            <span className="text-xs text-slate-400">Is this correct?</span>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">예약된 일정</p>
+                            <span className="text-xs text-slate-400">이 일정이 맞나요?</span>
                         </div>
                         <ul className="space-y-2 max-h-32 overflow-y-auto">
-                            {tasks.filter(t => t.date === new Date().toISOString().split('T')[0]).map(t => (
+                            {tasks.filter(t => t.date === storage.getLocalDateStr()).map(t => (
                                 <li key={t.id} className="flex items-center justify-between text-sm text-slate-700 bg-white p-2 rounded border border-slate-100 shadow-sm">
                                     <span className="flex items-center gap-2">
                                        <div className={`w-1.5 h-1.5 rounded-full ${t.isConfirmed ? 'bg-green-400' : 'bg-amber-400'}`}></div>
@@ -428,8 +444,8 @@ const App: React.FC = () => {
                                     </button>
                                 </li>
                             ))}
-                            {tasks.filter(t => t.date === new Date().toISOString().split('T')[0]).length === 0 && (
-                                <li className="text-slate-400 text-sm italic text-center py-2">No pre-booked tasks.</li>
+                            {tasks.filter(t => t.date === storage.getLocalDateStr()).length === 0 && (
+                                <li className="text-slate-400 text-sm italic text-center py-2">예약된 일정이 없습니다.</li>
                             )}
                         </ul>
                     </div>
@@ -440,12 +456,12 @@ const App: React.FC = () => {
                             type="text" 
                             value={morningInputText}
                             onChange={(e) => setMorningInputText(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && addTask(new Date().toISOString().split('T')[0], false, morningInputText)}
-                            placeholder="Add tasks for today..."
+                            onKeyDown={(e) => handleKeyDown(e, () => addTask(storage.getLocalDateStr(), false, morningInputText))}
+                            placeholder="오늘 할 일 추가..."
                             className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                         />
                         <button 
-                            onClick={() => addTask(new Date().toISOString().split('T')[0], false, morningInputText)}
+                            onClick={() => addTask(storage.getLocalDateStr(), false, morningInputText)}
                             className="bg-slate-200 hover:bg-slate-300 text-slate-600 p-2 rounded-lg transition-colors"
                         >
                             <Plus size={18} />
@@ -459,7 +475,7 @@ const App: React.FC = () => {
                 onClick={confirmMorningPlan}
                 className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-amber-200"
               >
-                Confirm & Start Day
+                확인 및 하루 시작
               </button>
            </div>
         </div>
@@ -471,7 +487,7 @@ const App: React.FC = () => {
            <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6">
               <div className="flex items-center gap-3 mb-4 text-indigo-500">
                 <CheckCircle2 className="fill-current text-white bg-indigo-500 rounded-full" />
-                <h3 className="text-xl font-bold text-slate-900">Daily Wrap-up</h3>
+                <h3 className="text-xl font-bold text-slate-900">하루 마무리</h3>
               </div>
               
               <div className="min-h-[100px] mb-6">
@@ -480,7 +496,7 @@ const App: React.FC = () => {
                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
-                     <span className="text-sm">Analyzing your progress...</span>
+                     <span className="text-sm">하루를 분석하고 있습니다...</span>
                   </div>
                 ) : (
                   <div className="prose prose-sm text-slate-600">
@@ -488,22 +504,22 @@ const App: React.FC = () => {
                     
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                         <div className="flex justify-between items-end mb-2">
-                            <span className="text-xs font-bold text-slate-500 uppercase">Progress</span>
+                            <span className="text-xs font-bold text-slate-500 uppercase">진행률</span>
                             <span className="text-lg font-bold text-indigo-600">
-                                {tasks.filter(t => t.date === new Date().toISOString().split('T')[0] && t.completed).length} 
+                                {tasks.filter(t => t.date === storage.getLocalDateStr() && t.completed).length} 
                                 <span className="text-slate-400 text-sm font-normal mx-1">/</span> 
-                                {tasks.filter(t => t.date === new Date().toISOString().split('T')[0]).length}
+                                {tasks.filter(t => t.date === storage.getLocalDateStr()).length}
                             </span>
                         </div>
                         <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden">
                             <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{width: `${
-                                tasks.filter(t => t.date === new Date().toISOString().split('T')[0]).length > 0 
-                                ? (tasks.filter(t => t.date === new Date().toISOString().split('T')[0] && t.completed).length / tasks.filter(t => t.date === new Date().toISOString().split('T')[0]).length * 100) 
+                                tasks.filter(t => t.date === storage.getLocalDateStr()).length > 0 
+                                ? (tasks.filter(t => t.date === storage.getLocalDateStr() && t.completed).length / tasks.filter(t => t.date === storage.getLocalDateStr()).length * 100) 
                                 : 0
                             }%`}}></div>
                         </div>
                         <p className="text-xs text-center text-slate-400 mt-2">
-                            Completed items are saved to History.
+                            완료된 항목은 기록에 저장됩니다.
                         </p>
                     </div>
                   </div>
@@ -514,7 +530,7 @@ const App: React.FC = () => {
                 onClick={() => setShowEveningReview(false)}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-indigo-200"
               >
-                Close & Rest
+                종료 및 휴식
               </button>
            </div>
         </div>

@@ -3,6 +3,14 @@ import { Task, AppSettings } from '../types';
 const TASKS_KEY = 'dayflow_tasks';
 const SETTINGS_KEY = 'dayflow_settings';
 
+// Utility to get local date string YYYY-MM-DD
+export const getLocalDateStr = (d: Date = new Date()): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const getTasks = (): Task[] => {
   try {
     const data = localStorage.getItem(TASKS_KEY);
@@ -42,11 +50,12 @@ export const saveSettings = (settings: AppSettings) => {
 export const cleanupOldData = () => {
   const tasks = getTasks();
   const today = new Date();
-  const thirtyDaysAgo = new Date(today.setDate(today.getDate() - 30));
+  today.setDate(today.getDate() - 30);
+  const limitDateStr = getLocalDateStr(today);
 
   const filteredTasks = tasks.filter(task => {
-    const taskDate = new Date(task.date);
-    return taskDate >= thirtyDaysAgo;
+    // task.date is YYYY-MM-DD string. String comparison works for ISO format dates.
+    return task.date >= limitDateStr;
   });
 
   if (filteredTasks.length !== tasks.length) {
