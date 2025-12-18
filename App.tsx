@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Home, Calendar as CalendarIcon, Clock, Settings, Bell, Zap, CheckCircle2, AlertTriangle, Trash2, PenLine, BellRing, BellOff } from 'lucide-react';
+import { Plus, Home, Calendar as CalendarIcon, Clock, Settings, Bell, Zap, CheckCircle2, AlertTriangle, Trash2, PenLine, BellRing, BellOff, Timer as TimerIcon } from 'lucide-react';
 import TaskItem from './components/TaskItem';
 import HistoryView from './components/HistoryView';
+// [신규] 타이머 뷰와 사운드 설정 컴포넌트 import
+import TimerView from './components/TimerView';
+import SoundSettings from './components/SoundSettings';
 import { Task, AppView, AppSettings, DailyNoteMap } from './types';
 import * as storage from './services/storageService';
 import * as gemini from './services/geminiService';
@@ -561,6 +564,17 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* [신규] 사운드 설정 섹션 추가 */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+          <SoundSettings
+            settings={settings}
+            onUpdateSettings={(newSettings) => {
+              setSettings(newSettings);
+              storage.saveSettings(newSettings);
+            }}
+          />
+        </div>
       </div>
     );
   };
@@ -580,6 +594,10 @@ const App: React.FC = () => {
       <div className="flex-1 overflow-y-auto px-4 py-6 scrollbar-hide">
         {currentView === AppView.TODAY && renderToday()}
         {currentView === AppView.FUTURE && renderFuture()}
+        {/* [신규] 타이머 뷰 추가 */}
+        {currentView === AppView.TIMER && (
+          <TimerView settings={settings} />
+        )}
         {currentView === AppView.HISTORY && (
           <HistoryView
             tasks={tasks}
@@ -593,34 +611,43 @@ const App: React.FC = () => {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="bg-white border-t border-slate-100 px-6 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] flex justify-between items-center z-20">
+      {/* [변경] 5개 버튼으로 확장 (오늘/계획/타이머/기록/설정) */}
+      <div className="bg-white border-t border-slate-100 px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] flex justify-between items-center z-20">
         <button
           onClick={() => setCurrentView(AppView.TODAY)}
           className={`flex flex-col items-center gap-1 ${currentView === AppView.TODAY ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
         >
-          <Home size={24} strokeWidth={currentView === AppView.TODAY ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">오늘</span>
+          <Home size={22} strokeWidth={currentView === AppView.TODAY ? 2.5 : 2} />
+          <span className="text-[9px] font-medium">오늘</span>
         </button>
         <button
           onClick={() => setCurrentView(AppView.FUTURE)}
           className={`flex flex-col items-center gap-1 ${currentView === AppView.FUTURE ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
         >
-          <CalendarIcon size={24} strokeWidth={currentView === AppView.FUTURE ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">계획</span>
+          <CalendarIcon size={22} strokeWidth={currentView === AppView.FUTURE ? 2.5 : 2} />
+          <span className="text-[9px] font-medium">계획</span>
+        </button>
+        {/* [신규] 타이머 버튼 추가 */}
+        <button
+          onClick={() => setCurrentView(AppView.TIMER)}
+          className={`flex flex-col items-center gap-1 ${currentView === AppView.TIMER ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          <TimerIcon size={22} strokeWidth={currentView === AppView.TIMER ? 2.5 : 2} />
+          <span className="text-[9px] font-medium">타이머</span>
         </button>
         <button
           onClick={() => setCurrentView(AppView.HISTORY)}
           className={`flex flex-col items-center gap-1 ${currentView === AppView.HISTORY ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
         >
-          <Clock size={24} strokeWidth={currentView === AppView.HISTORY ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">기록</span>
+          <Clock size={22} strokeWidth={currentView === AppView.HISTORY ? 2.5 : 2} />
+          <span className="text-[9px] font-medium">기록</span>
         </button>
         <button
           onClick={() => setCurrentView(AppView.SETTINGS)}
           className={`flex flex-col items-center gap-1 ${currentView === AppView.SETTINGS ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
         >
-          <Settings size={24} strokeWidth={currentView === AppView.SETTINGS ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">설정</span>
+          <Settings size={22} strokeWidth={currentView === AppView.SETTINGS ? 2.5 : 2} />
+          <span className="text-[9px] font-medium">설정</span>
         </button>
       </div>
 

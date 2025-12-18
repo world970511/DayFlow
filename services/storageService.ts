@@ -87,22 +87,48 @@ export const deleteOldestMonthRecords = (tasks: Task[], notes: DailyNoteMap): { 
     return { updatedTasks, updatedNotes, deletedMonth: targetMonth };
 };
 
+// [변경] 기본 설정에 사운드 관련 필드 추가
 export const getSettings = (): AppSettings => {
   try {
     const data = localStorage.getItem(SETTINGS_KEY);
-    return data ? JSON.parse(data) : {
-      morningAlertTime: "09:00",
-      eveningAlertTime: "20:00" ,
-      notificationsEnabled: true
-    };
+    if (data) {
+      const parsed = JSON.parse(data);
+      // [신규] 기존 설정에 새로운 필드가 없으면 기본값으로 채움 (마이그레이션)
+      return {
+        morningAlertTime: parsed.morningAlertTime || "09:00",
+        eveningAlertTime: parsed.eveningAlertTime || "20:00",
+        notificationsEnabled: parsed.notificationsEnabled !== undefined ? parsed.notificationsEnabled : true,
+        // 기존 사운드 설정 (알림/알람)
+        focusEndSound: parsed.focusEndSound || 'ding',
+        breakEndSound: parsed.breakEndSound || 'chime',
+        timerEndSound: parsed.timerEndSound || 'alarm1',
+        // [신규] 백색 소음 설정
+        whiteNoiseSound: parsed.whiteNoiseSound || 'ocean',
+        whiteNoiseEnabled: parsed.whiteNoiseEnabled !== undefined ? parsed.whiteNoiseEnabled : false,
+        whiteNoiseVolume: parsed.whiteNoiseVolume !== undefined ? parsed.whiteNoiseVolume : 30,
+      };
+    }
+    // 데이터가 없으면 기본값 반환
+    return getDefaultSettings();
   } catch (e) {
-    return {
-      morningAlertTime: "09:00",
-      eveningAlertTime: "20:00",
-      notificationsEnabled: true
-    };
+    return getDefaultSettings();
   }
 };
+
+// [신규] 기본 설정값을 반환하는 헬퍼 함수
+const getDefaultSettings = (): AppSettings => ({
+  morningAlertTime: "09:00",
+  eveningAlertTime: "20:00",
+  notificationsEnabled: true,
+  // 기존 사운드 기본값
+  focusEndSound: 'ding',
+  breakEndSound: 'chime',
+  timerEndSound: 'alarm1',
+  // [신규] 백색 소음 기본값
+  whiteNoiseSound: 'ocean',
+  whiteNoiseEnabled: false,
+  whiteNoiseVolume: 30,
+});
 
 export const saveSettings = (settings: AppSettings) => {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
