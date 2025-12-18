@@ -9,6 +9,7 @@ import { Task, AppView, AppSettings, DailyNoteMap } from './types';
 import * as storage from './services/storageService';
 import * as gemini from './services/geminiService';
 import * as notifications from './services/notificationService';
+import * as permissions from './services/permissionService';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
 const App: React.FC = () => {
@@ -26,6 +27,10 @@ const App: React.FC = () => {
   // Notification State
   const [notificationPermission, setNotificationPermission] = useState<boolean>(false);
   const [isNative, setIsNative] = useState<boolean>(false);
+
+  // Permission State
+  const [overlayPermission, setOverlayPermission] = useState<boolean>(false);
+  const [audioPermission, setAudioPermission] = useState<boolean>(false);
 
   // Future Planning State
   const [selectedDate, setSelectedDate] = useState<string>(storage.getLocalDateStr());
@@ -54,6 +59,9 @@ const App: React.FC = () => {
 
     // 알림 초기화
     initializeNotifications();
+
+    // 권한 초기화
+    initializePermissions();
 
     checkRoutine(loadedTasks);
 
@@ -134,6 +142,29 @@ const App: React.FC = () => {
         }
       );
     }
+  };
+
+  // 권한 초기화 함수
+  const initializePermissions = async () => {
+    const permissionsState = await permissions.checkAllPermissions();
+    setOverlayPermission(permissionsState.overlay);
+    setAudioPermission(permissionsState.audio);
+  };
+
+  // 오버레이 권한 요청
+  const handleRequestOverlayPermission = async () => {
+    await permissions.requestOverlayPermission();
+    // 권한 요청 후 다시 확인 (사용자가 설정에서 돌아올 때까지 대기)
+    setTimeout(async () => {
+      const hasPermission = await permissions.checkOverlayPermission();
+      setOverlayPermission(hasPermission);
+    }, 1000);
+  };
+
+  // 미디어 권한 요청
+  const handleRequestAudioPermission = async () => {
+    const granted = await permissions.requestAudioPermission();
+    setAudioPermission(granted);
   };
 
   // 알림 권한 요청 및 활성화
@@ -623,6 +654,56 @@ const App: React.FC = () => {
                 </p>
               )}
             </div>
+
+            {/* 권한 상태 안내 */}
+            {isNative && (
+              <div className="pb-4 border-b border-slate-100">
+                <h3 className="font-semibold text-slate-900 mb-3">필요한 권한</h3>
+                <div className="space-y-2">
+                  {/* 오버레이 권한 */}
+                  {settings.useOverlay && (
+                    <div className={`p-3 rounded-lg ${overlayPermission ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-800">다른 앱 위에 표시</p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {overlayPermission ? '허용됨 ✓' : '오버레이 모드에 필요합니다'}
+                          </p>
+                        </div>
+                        {!overlayPermission && (
+                          <button
+                            onClick={handleRequestOverlayPermission}
+                            className="ml-2 px-3 py-1 bg-amber-500 text-white text-xs rounded-lg hover:bg-amber-600 transition-colors"
+                          >
+                            권한 요청
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 미디어 권한 */}
+                  <div className={`p-3 rounded-lg ${audioPermission ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-800">미디어 파일 접근</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {audioPermission ? '허용됨 ✓' : '커스텀 사운드 추가에 필요합니다'}
+                        </p>
+                      </div>
+                      {!audioPermission && (
+                        <button
+                          onClick={handleRequestAudioPermission}
+                          className="ml-2 px-3 py-1 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 transition-colors"
+                        >
+                          권한 요청
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 알림 방식 선택 */}
             <div className="pb-4 border-b border-slate-100">
