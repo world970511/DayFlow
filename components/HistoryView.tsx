@@ -3,6 +3,9 @@ import { Task, DailyNoteMap } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { Calendar, Trophy, ChevronLeft, ChevronRight, Image as ImageIcon, ChevronDown, ChevronUp, AlertTriangle, Quote } from 'lucide-react';
 import TaskItem from './TaskItem';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 interface HistoryViewProps {
   tasks: Task[];
@@ -295,14 +298,40 @@ const HistoryView: React.FC<HistoryViewProps> = ({ tasks, dailyNotes = {}, onDel
         }
     }
 
-    // Trigger Download
+    // Trigger Download or Share
     const dataUrl = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = dataUrl;
-    link.download = `DayFlow_Diary_${yearMonthStr}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const base64Data = dataUrl.split(',')[1]; // Remove data:image/png;base64, prefix
+
+    if (Capacitor.isNativePlatform()) {
+      // Native: Save to temp directory and share
+      const fileName = `DayFlow_Diary_${yearMonthStr}.png`;
+
+      Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Cache
+      })
+        .then(async (result) => {
+          await Share.share({
+            title: `${yearMonthStr} DayFlow 다이어리`,
+            text: `${yearMonthStr} 월간 기록`,
+            url: result.uri,
+            dialogTitle: '다이어리 이미지 공유'
+          });
+        })
+        .catch((error) => {
+          console.error('Error sharing image:', error);
+          alert('이미지 공유에 실패했습니다.');
+        });
+    } else {
+      // Web: Traditional download
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `DayFlow_Diary_${yearMonthStr}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   const COLORS = ['#CBD5E1', '#3B82F6']; // Slate-300 (incomplete), Blue-500 (complete)
@@ -358,13 +387,13 @@ const HistoryView: React.FC<HistoryViewProps> = ({ tasks, dailyNotes = {}, onDel
 
             <div className="flex justify-between items-end mb-3 pl-1">
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">일별 상세</h3>
-                <button 
+                <button
                     onClick={handleDownload}
                     className="flex items-center gap-2 text-xs font-semibold bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300 px-3 py-1.5 rounded-lg transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={monthlySummary.total === 0}
                 >
                     <ImageIcon size={14} />
-                    다이어리 이미지 저장
+                    {Capacitor.isNativePlatform() ? '다이어리 이미지 공유' : '다이어리 이미지 저장'}
                 </button>
             </div>
 
