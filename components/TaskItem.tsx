@@ -52,9 +52,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onDelete, onUpdateM
           </button>
           
           {!readonly && (
-             <button 
+             <button
              onClick={() => onDelete(task.id)}
-             className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+             className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
            >
              <Trash2 size={16} />
            </button>

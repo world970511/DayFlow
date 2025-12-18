@@ -5,7 +5,7 @@ import { Calendar, Trophy, ChevronLeft, ChevronRight, Image as ImageIcon, Chevro
 import TaskItem from './TaskItem';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
+// Share 제거 - 다운로드 기능만 사용
 
 interface HistoryViewProps {
   tasks: Task[];
@@ -303,25 +303,20 @@ const HistoryView: React.FC<HistoryViewProps> = ({ tasks, dailyNotes = {}, onDel
     const base64Data = dataUrl.split(',')[1]; // Remove data:image/png;base64, prefix
 
     if (Capacitor.isNativePlatform()) {
-      // Native: Save to temp directory and share
+      // Native: Save to Downloads directory
       const fileName = `DayFlow_Diary_${yearMonthStr}.png`;
 
       Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: Directory.Cache
+        directory: Directory.Documents
       })
-        .then(async (result) => {
-          await Share.share({
-            title: `${yearMonthStr} DayFlow 다이어리`,
-            text: `${yearMonthStr} 월간 기록`,
-            url: result.uri,
-            dialogTitle: '다이어리 이미지 공유'
-          });
+        .then((result) => {
+          alert(`다이어리 이미지가 저장되었습니다.\n경로: ${result.uri}`);
         })
         .catch((error) => {
-          console.error('Error sharing image:', error);
-          alert('이미지 공유에 실패했습니다.');
+          console.error('Error saving image:', error);
+          alert('이미지 저장에 실패했습니다.');
         });
     } else {
       // Web: Traditional download
@@ -393,7 +388,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ tasks, dailyNotes = {}, onDel
                     disabled={monthlySummary.total === 0}
                 >
                     <ImageIcon size={14} />
-                    {Capacitor.isNativePlatform() ? '다이어리 이미지 공유' : '다이어리 이미지 저장'}
+                    다이어리 이미지 다운로드
                 </button>
             </div>
 

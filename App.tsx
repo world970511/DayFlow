@@ -42,6 +42,9 @@ const App: React.FC = () => {
   // Evening specific input (Daily Reflection)
   const [eveningNoteText, setEveningNoteText] = useState('');
 
+  // Settings Sub-view
+  const [settingsSubView, setSettingsSubView] = useState<'main' | 'notification' | 'sound'>('main');
+
   // Initialize
   useEffect(() => {
     const loadedTasks = storage.getTasks();
@@ -59,8 +62,33 @@ const App: React.FC = () => {
       StatusBar.setStyle({ style: Style.Light }).catch(() => { });
       StatusBar.setBackgroundColor({ color: '#FFFFFF' }).catch(() => { });
     }
+
+    // 시간 기반 자동 알림 체크 (1분마다)
+    const interval = setInterval(() => {
+      checkTimeBasedNotifications();
+    }, 60000); // 60초마다 체크
+
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 시간 기반 자동 알림 체크
+  const checkTimeBasedNotifications = () => {
+    if (!settings.notificationsEnabled) return;
+
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    // 아침 알림 시간 체크
+    if (currentTime === settings.morningAlertTime && !showMorningBrief) {
+      triggerMorningRoutine();
+    }
+
+    // 저녁 알림 시간 체크
+    if (currentTime === settings.eveningAlertTime && !showEveningReview) {
+      triggerEveningRoutine();
+    }
+  };
 
   // 알림 초기화 함수
   const initializeNotifications = async () => {
@@ -421,13 +449,13 @@ const App: React.FC = () => {
               onChange={(e) => setNewTaskText(e.target.value)}
               onKeyDown={(e) => handleKeyDown(e, () => addTask(selectedDate, true))}
               placeholder={`${selectedDate}에 할 일...`}
-              className="flex-1 px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
             />
             <button
               onClick={() => addTask(selectedDate, true)}
-              className="bg-indigo-600 text-white p-2 px-4 rounded-lg hover:bg-indigo-700"
+              className="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 transition-colors shadow-md active:scale-95"
             >
-              추가
+              <Plus />
             </button>
           </div>
 
@@ -447,17 +475,102 @@ const App: React.FC = () => {
   };
 
   const renderSettings = () => {
-    return (
-      <div className="space-y-6 pb-24">
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-          <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
-            <Settings className="mr-2 text-slate-500" size={20} />
-            설정
-          </h2>
+    // 메인 설정 리스트
+    if (settingsSubView === 'main') {
+      return (
+        <div className="space-y-6 pb-24">
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100">
+            <div className="p-6 border-b border-slate-100">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center">
+                <Settings className="mr-2 text-slate-500" size={20} />
+                설정
+              </h2>
+            </div>
 
-          <div className="space-y-4">
-            {/* 알림 설정 섹션 */}
-            <div className="pb-4 border-b border-slate-100">
+            <div className="divide-y divide-slate-100">
+              {/* 알림 설정 */}
+              <button
+                onClick={() => setSettingsSubView('notification')}
+                className="w-full p-6 flex items-center justify-between hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                    <Bell className="text-blue-500" size={20} />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-slate-800">알림 설정</h3>
+                    <p className="text-xs text-slate-500">
+                      {settings.notificationsEnabled ? '활성화됨' : '비활성화됨'}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-slate-400">›</div>
+              </button>
+
+              {/* 사운드 설정 */}
+              <button
+                onClick={() => setSettingsSubView('sound')}
+                className="w-full p-6 flex items-center justify-between hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+                    <Clock className="text-indigo-500" size={20} />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-slate-800">사운드 설정</h3>
+                    <p className="text-xs text-slate-500">타이머 사운드 관리</p>
+                  </div>
+                </div>
+                <div className="text-slate-400">›</div>
+              </button>
+            </div>
+
+            {/* 저장소 안내 */}
+            <div className="p-6 bg-slate-50 border-t border-slate-100">
+              <h3 className="font-semibold text-slate-700 mb-2 text-sm">데이터 저장소</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                모든 데이터는 기기 내부에 저장되며, 저장 공간이 가득 찰 경우 알림이 표시됩니다.
+              </p>
+              {showStorageWarning && (
+                <div className="mt-3 text-xs text-red-600 font-semibold flex items-center gap-1 bg-red-50 p-2 rounded-lg">
+                  <AlertTriangle size={14} />
+                  현재 저장 공간이 부족합니다.
+                  <button
+                    onClick={() => setShowStorageFullModal(true)}
+                    className="underline ml-1"
+                  >
+                    공간 확보하기
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 알림 설정 상세
+    if (settingsSubView === 'notification') {
+      return (
+        <div className="space-y-6 pb-24">
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100">
+            <div className="p-6 border-b border-slate-100">
+              <button
+                onClick={() => setSettingsSubView('main')}
+                className="flex items-center gap-2 text-slate-600 hover:text-slate-800 mb-4"
+              >
+                <span className="text-lg">‹</span>
+                <span className="text-sm font-medium">뒤로</span>
+              </button>
+              <h2 className="text-xl font-bold text-slate-800 flex items-center">
+                <Bell className="mr-2 text-blue-500" size={20} />
+                알림 설정
+              </h2>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* 알림 토글 */}
+              <div className="pb-4 border-b border-slate-100">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   {settings.notificationsEnabled ? (
@@ -543,47 +656,50 @@ const App: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      );
+    }
 
-            <div className="pt-6 border-t border-slate-100">
-              <h3 className="font-semibold text-slate-900 mb-2">데이터 관리</h3>
-              <p className="text-xs text-slate-500">
-                데이터는 기기 내부에 저장되며, 저장 공간이 가득 찰 경우 알림이 표시됩니다.
-              </p>
-              {showStorageWarning && (
-                <div className="mt-2 text-xs text-red-500 font-bold flex items-center gap-1">
-                  <AlertTriangle size={12} />
-                  현재 저장 공간이 부족합니다.
-                  <button
-                    onClick={() => setShowStorageFullModal(true)}
-                    className="underline ml-1"
-                  >
-                    공간 확보하기
-                  </button>
-                </div>
-              )}
+    // 사운드 설정 상세
+    if (settingsSubView === 'sound') {
+      return (
+        <div className="space-y-6 pb-24">
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100">
+            <div className="p-6 border-b border-slate-100">
+              <button
+                onClick={() => setSettingsSubView('main')}
+                className="flex items-center gap-2 text-slate-600 hover:text-slate-800 mb-4"
+              >
+                <span className="text-lg">‹</span>
+                <span className="text-sm font-medium">뒤로</span>
+              </button>
+              <h2 className="text-xl font-bold text-slate-800 flex items-center">
+                <Clock className="mr-2 text-indigo-500" size={20} />
+                사운드 설정
+              </h2>
+            </div>
+
+            <div className="p-6">
+              <SoundSettings
+                settings={settings}
+                onUpdateSettings={(newSettings) => {
+                  setSettings(newSettings);
+                  storage.saveSettings(newSettings);
+                }}
+              />
             </div>
           </div>
         </div>
-
-        {/* [신규] 사운드 설정 섹션 추가 */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-          <SoundSettings
-            settings={settings}
-            onUpdateSettings={(newSettings) => {
-              setSettings(newSettings);
-              storage.saveSettings(newSettings);
-            }}
-          />
-        </div>
-      </div>
-    );
+      );
+    }
   };
 
   return (
     <div className="h-full flex flex-col max-w-md mx-auto bg-slate-50 shadow-2xl relative overflow-hidden">
 
       {/* Top Bar */}
-      <div className="px-6 pt-[calc(env(safe-area-inset-top)+3.5rem)] pb-4 flex justify-between items-center bg-white border-b border-slate-100 z-10">
+      <div className="px-6 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-4 flex justify-between items-center bg-white border-b border-slate-100 z-10">
         <span className="text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">DayFlow</span>
         <div className="text-sm font-medium text-slate-500">
           {new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
@@ -643,7 +759,10 @@ const App: React.FC = () => {
           <span className="text-[9px] font-medium">기록</span>
         </button>
         <button
-          onClick={() => setCurrentView(AppView.SETTINGS)}
+          onClick={() => {
+            setCurrentView(AppView.SETTINGS);
+            setSettingsSubView('main');
+          }}
           className={`flex flex-col items-center gap-1 ${currentView === AppView.SETTINGS ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
         >
           <Settings size={22} strokeWidth={currentView === AppView.SETTINGS ? 2.5 : 2} />
@@ -689,7 +808,7 @@ const App: React.FC = () => {
       {/* Morning Briefing Modal */}
       {showMorningBrief && (
         <div
-          className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
@@ -749,16 +868,10 @@ const App: React.FC = () => {
 
             <div className="flex gap-3">
               <button
-                onClick={() => setShowMorningBrief(false)}
-                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition-colors"
-              >
-                나중에
-              </button>
-              <button
                 onClick={confirmMorningPlan}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-amber-200"
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-amber-200"
               >
-                확인
+                하루 시작하기
               </button>
             </div>
           </div>
@@ -768,7 +881,7 @@ const App: React.FC = () => {
       {/* Evening Review Modal */}
       {showEveningReview && (
         <div
-          className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
@@ -826,16 +939,10 @@ const App: React.FC = () => {
 
             <div className="flex gap-3">
               <button
-                onClick={() => setShowEveningReview(false)}
-                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition-colors"
-              >
-                나중에
-              </button>
-              <button
                 onClick={finishEveningReview}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-indigo-200"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-indigo-200"
               >
-                완료
+                하루 마무리 완료
               </button>
             </div>
           </div>

@@ -123,12 +123,6 @@ const SoundSettings: React.FC<SoundSettingsProps> = ({ settings, onUpdateSetting
 
   return (
     <div className="space-y-4">
-      {/* 헤더 */}
-      <div className="flex items-center gap-2 mb-4">
-        <Music className="text-indigo-500" size={20} />
-        <h3 className="text-lg font-bold text-slate-900">타이머 사운드 설정</h3>
-      </div>
-
       {/* 카테고리 탭 */}
       <div className="bg-slate-50 p-1 rounded-xl flex gap-1">
         <button

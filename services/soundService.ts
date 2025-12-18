@@ -43,19 +43,19 @@ class SoundService {
   private readonly BUILTIN_SOUNDS: Record<SoundCategory, BuiltinSound[]> = {
     // 백색 소음 (타이머 진행 중 배경음)
     whitenoise: [
-      { id: 'ocean', name: '🌊 파도 소리', type: 'loop' },
-      { id: 'rain', name: '🌧️ 빗소리', type: 'loop' },
-      { id: 'forest', name: '🌲 숲속 새소리', type: 'loop' },
-      { id: 'cafe', name: '☕ 카페 소음', type: 'loop' },
-      { id: 'fire', name: '🔥 모닥불', type: 'loop' }
+      { id: 'Ocean', name: '🌊 파도 소리', type: 'loop' },
+      { id: 'Rain', name: '🌧️ 빗소리', type: 'loop' },
+      { id: 'Bird', name: '🌲 숲속 새소리', type: 'loop' },
+      { id: 'Office', name: '☕ 카페 소음', type: 'loop' },
+      { id: 'Fire', name: '🔥 모닥불', type: 'loop' }
     ],
     // 알림음 (뽀모도로 세션 종료)
     notification: [
-      { id: 'ding', name: '🔔 딩', type: 'oneshot' },
-      { id: 'chime', name: '🎵 차임', type: 'oneshot' },
-      { id: 'bell', name: '🔔 벨', type: 'oneshot' },
-      { id: 'triplet', name: '🎶 트리플렛', type: 'oneshot' },
-      { id: 'soft', name: '✨ 소프트', type: 'oneshot' }
+      { id: 'Ding', name: '🔔 딩', type: 'oneshot' },
+      { id: 'Chime', name: '🎵 차임', type: 'oneshot' },
+      { id: 'Bell', name: '🔔 벨', type: 'oneshot' },
+      { id: 'Triplets', name: '🎶 트리플렛', type: 'oneshot' },
+      { id: 'Soft', name: '✨ 소프트', type: 'oneshot' }
     ],
     // 알람음 (일반 타이머 최종 종료)
     alarm: [
@@ -134,18 +134,18 @@ class SoundService {
 
     // 기존 Oscillator 로직 유지
     switch (soundId) {
-      case 'ding':
+      case 'Ding':
         this.createOscillator(880, now, 0.5);
         break;
-      case 'chime':
+      case 'Chime':
         this.createOscillator(659.25, now, 0.4);
         this.createOscillator(830.61, now + 0.1, 0.4);
         break;
-      case 'bell':
+      case 'Bell':
         this.createOscillator(523.25, now, 1.0, 'triangle');
         this.createOscillator(1046.50, now, 0.8, 'sine');
         break;
-      case 'triplet':
+      case 'Triplets':
         this.createOscillator(440, now, 0.2);
         this.createOscillator(554.37, now + 0.2, 0.2);
         this.createOscillator(659.25, now + 0.4, 0.4);
@@ -155,7 +155,7 @@ class SoundService {
         this.createOscillator(440, now + 0.2, 0.1, 'square');
         this.createOscillator(440, now + 0.4, 0.1, 'square');
         break;
-      case 'soft':
+      case 'Soft':
         this.createOscillator(523.25, now, 0.6);
         break;
       case 'alarm1':
@@ -227,23 +227,23 @@ class SoundService {
     const gain = this.ctx.createGain();
 
     switch (soundId) {
-      case 'ocean':
+      case 'Ocean':
         osc.type = 'sine';
         osc.frequency.setValueAtTime(100, this.ctx.currentTime);
         break;
-      case 'rain':
+      case 'Rain':
         osc.type = 'sine';
         osc.frequency.setValueAtTime(200, this.ctx.currentTime);
         break;
-      case 'forest':
+      case 'Bird':
         osc.type = 'sine';
         osc.frequency.setValueAtTime(150, this.ctx.currentTime);
         break;
-      case 'cafe':
+      case 'Office':
         osc.type = 'sine';
         osc.frequency.setValueAtTime(120, this.ctx.currentTime);
         break;
-      case 'fire':
+      case 'Fire':
         osc.type = 'sine';
         osc.frequency.setValueAtTime(80, this.ctx.currentTime);
         break;
