@@ -98,6 +98,9 @@ export const getSettings = (): AppSettings => {
         morningAlertTime: parsed.morningAlertTime || "09:00",
         eveningAlertTime: parsed.eveningAlertTime || "20:00",
         notificationsEnabled: parsed.notificationsEnabled !== undefined ? parsed.notificationsEnabled : true,
+        // [신규] 시간 기반 알림 방식
+        useOverlay: parsed.useOverlay !== undefined ? parsed.useOverlay : true,
+        pushNotificationSound: parsed.pushNotificationSound || 'alarm1',
         // 기존 사운드 설정 (알림/알람)
         focusEndSound: parsed.focusEndSound || 'ding',
         breakEndSound: parsed.breakEndSound || 'chime',
@@ -120,6 +123,9 @@ const getDefaultSettings = (): AppSettings => ({
   morningAlertTime: "09:00",
   eveningAlertTime: "20:00",
   notificationsEnabled: true,
+  // [신규] 시간 기반 알림 방식 기본값
+  useOverlay: true, // 기본값: 오버레이 모드
+  pushNotificationSound: 'alarm1',
   // 기존 사운드 기본값
   focusEndSound: 'ding',
   breakEndSound: 'chime',

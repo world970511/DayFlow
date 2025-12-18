@@ -163,3 +163,57 @@ export const removeNotificationListeners = (): void => {
   if (!isNativePlatform()) return;
   LocalNotifications.removeAllListeners();
 };
+
+// [신규] 즉시 아침 푸시 알림 전송 (알람음 포함)
+export const sendMorningNotification = async (soundId: string): Promise<void> => {
+  if (!isNativePlatform()) {
+    console.log('웹 환경: 푸시 알림 스킵');
+    return;
+  }
+
+  try {
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: 200,
+          title: "🌅 좋은 아침이에요!",
+          body: "오늘의 할 일을 확인하고 하루를 시작하세요.",
+          schedule: {
+            at: new Date(Date.now() + 100) // 즉시
+          },
+          sound: soundId, // 사용자가 선택한 알람음
+          actionTypeId: 'MORNING_ACTION'
+        }
+      ]
+    });
+  } catch (error) {
+    console.error('아침 푸시 알림 실패:', error);
+  }
+};
+
+// [신규] 즉시 저녁 푸시 알림 전송 (알람음 포함)
+export const sendEveningNotification = async (soundId: string): Promise<void> => {
+  if (!isNativePlatform()) {
+    console.log('웹 환경: 푸시 알림 스킵');
+    return;
+  }
+
+  try {
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: 201,
+          title: "🌙 하루 마무리 시간이에요",
+          body: "오늘 하루를 정리하고 내일을 준비하세요.",
+          schedule: {
+            at: new Date(Date.now() + 100) // 즉시
+          },
+          sound: soundId, // 사용자가 선택한 알람음
+          actionTypeId: 'EVENING_ACTION'
+        }
+      ]
+    });
+  } catch (error) {
+    console.error('저녁 푸시 알림 실패:', error);
+  }
+};
