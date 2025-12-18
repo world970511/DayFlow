@@ -628,7 +628,7 @@ const App: React.FC = () => {
 
       {/* Storage Full Warning Modal */}
       {showStorageFullModal && (
-        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-6 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-6 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6">
             <div className="flex items-center gap-3 mb-4 text-red-500">
               <AlertTriangle size={24} />
@@ -661,8 +661,11 @@ const App: React.FC = () => {
 
       {/* Morning Briefing Modal */}
       {showMorningBrief && (
-        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6">
+        <div
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4 text-amber-500">
               <Zap className="fill-current" />
               <h3 className="text-xl font-bold text-slate-900">아침 브리핑</h3>
@@ -717,20 +720,31 @@ const App: React.FC = () => {
               </>
             </div>
 
-            <button
-              onClick={confirmMorningPlan}
-              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-amber-200"
-            >
-              확인 및 하루 시작
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowMorningBrief(false)}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition-colors"
+              >
+                나중에
+              </button>
+              <button
+                onClick={confirmMorningPlan}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-amber-200"
+              >
+                확인
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Evening Review Modal */}
       {showEveningReview && (
-        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6">
+        <div
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4 text-indigo-500">
               <CheckCircle2 className="fill-current text-white bg-indigo-500 rounded-full" />
               <h3 className="text-xl font-bold text-slate-900">하루 마무리</h3>
@@ -783,12 +797,20 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <button
-              onClick={finishEveningReview}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-indigo-200"
-            >
-              종료 및 휴식
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowEveningReview(false)}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition-colors"
+              >
+                나중에
+              </button>
+              <button
+                onClick={finishEveningReview}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-indigo-200"
+              >
+                완료
+              </button>
+            </div>
           </div>
         </div>
       )}
