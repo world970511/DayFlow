@@ -20,6 +20,7 @@
     "@capacitor/preferences": "^7.0.2",
     "@capacitor/share": "^7.0.3",
     "@capacitor/status-bar": "^7.0.3",
+    "@capawesome/capacitor-file-picker": "^7.2.0",
     "@google/genai": "^1.30.0",
     "lucide-react": "^0.555.0",
     "react": "^19.2.1",
@@ -29,6 +30,8 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",
     "@types/node": "^22.14.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.22",
     "postcss": "^8.5.6",
