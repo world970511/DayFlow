@@ -9,6 +9,7 @@ import { Task, AppView, AppSettings, DailyNoteMap } from './types';
 import * as storage from './services/storageService';
 import * as gemini from './services/geminiService';
 import * as notifications from './services/notificationService';
+import * as permissions from './services/permissionService';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
 const App: React.FC = () => {
@@ -26,6 +27,10 @@ const App: React.FC = () => {
   // Notification State
   const [notificationPermission, setNotificationPermission] = useState<boolean>(false);
   const [isNative, setIsNative] = useState<boolean>(false);
+
+  // Permission State
+  const [overlayPermission, setOverlayPermission] = useState<boolean>(false);
+  const [audioPermission, setAudioPermission] = useState<boolean>(false);
 
   // Future Planning State
   const [selectedDate, setSelectedDate] = useState<string>(storage.getLocalDateStr());
@@ -55,6 +60,9 @@ const App: React.FC = () => {
     // 알림 초기화
     initializeNotifications();
 
+    // 권한 초기화
+    initializePermissions();
+
     checkRoutine(loadedTasks);
 
     // 상태바 설정 (Native Only)
@@ -73,7 +81,7 @@ const App: React.FC = () => {
   }, []);
 
   // 시간 기반 자동 알림 체크
-  const checkTimeBasedNotifications = () => {
+  const checkTimeBasedNotifications = async () => {
     if (!settings.notificationsEnabled) return;
 
     const now = new Date();
@@ -81,12 +89,24 @@ const App: React.FC = () => {
 
     // 아침 알림 시간 체크
     if (currentTime === settings.morningAlertTime && !showMorningBrief) {
-      triggerMorningRoutine();
+      if (settings.useOverlay) {
+        // 오버레이 모드: 모달 표시
+        triggerMorningRoutine();
+      } else {
+        // 푸시 알림 모드: 알람음과 함께 푸시 알림 전송
+        await notifications.sendMorningNotification(settings.pushNotificationSound);
+      }
     }
 
     // 저녁 알림 시간 체크
     if (currentTime === settings.eveningAlertTime && !showEveningReview) {
-      triggerEveningRoutine();
+      if (settings.useOverlay) {
+        // 오버레이 모드: 모달 표시
+        triggerEveningRoutine();
+      } else {
+        // 푸시 알림 모드: 알람음과 함께 푸시 알림 전송
+        await notifications.sendEveningNotification(settings.pushNotificationSound);
+      }
     }
   };
 
@@ -122,6 +142,29 @@ const App: React.FC = () => {
         }
       );
     }
+  };
+
+  // 권한 초기화 함수
+  const initializePermissions = async () => {
+    const permissionsState = await permissions.checkAllPermissions();
+    setOverlayPermission(permissionsState.overlay);
+    setAudioPermission(permissionsState.audio);
+  };
+
+  // 오버레이 권한 요청
+  const handleRequestOverlayPermission = async () => {
+    await permissions.requestOverlayPermission();
+    // 권한 요청 후 다시 확인 (사용자가 설정에서 돌아올 때까지 대기)
+    setTimeout(async () => {
+      const hasPermission = await permissions.checkOverlayPermission();
+      setOverlayPermission(hasPermission);
+    }, 1000);
+  };
+
+  // 미디어 권한 요청
+  const handleRequestAudioPermission = async () => {
+    const granted = await permissions.requestAudioPermission();
+    setAudioPermission(granted);
   };
 
   // 알림 권한 요청 및 활성화
@@ -609,6 +652,138 @@ const App: React.FC = () => {
                 <p className="text-xs text-slate-500">
                   푸시 알림은 APK로 설치된 앱에서만 작동합니다.
                 </p>
+              )}
+            </div>
+
+            {/* 권한 상태 안내 */}
+            {isNative && (
+              <div className="pb-4 border-b border-slate-100">
+                <h3 className="font-semibold text-slate-900 mb-3">필요한 권한</h3>
+                <div className="space-y-2">
+                  {/* 오버레이 권한 */}
+                  {settings.useOverlay && (
+                    <div className={`p-3 rounded-lg ${overlayPermission ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-800">다른 앱 위에 표시</p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {overlayPermission ? '허용됨 ✓' : '오버레이 모드에 필요합니다'}
+                          </p>
+                        </div>
+                        {!overlayPermission && (
+                          <button
+                            onClick={handleRequestOverlayPermission}
+                            className="ml-2 px-3 py-1 bg-amber-500 text-white text-xs rounded-lg hover:bg-amber-600 transition-colors"
+                          >
+                            권한 요청
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 미디어 권한 */}
+                  <div className={`p-3 rounded-lg ${audioPermission ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-800">미디어 파일 접근</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {audioPermission ? '허용됨 ✓' : '커스텀 사운드 추가에 필요합니다'}
+                        </p>
+                      </div>
+                      {!audioPermission && (
+                        <button
+                          onClick={handleRequestAudioPermission}
+                          className="ml-2 px-3 py-1 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 transition-colors"
+                        >
+                          권한 요청
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 알림 방식 선택 */}
+            <div className="pb-4 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-900 mb-3">알림 방식</h3>
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    const newSettings = { ...settings, useOverlay: true };
+                    setSettings(newSettings);
+                    storage.saveSettings(newSettings);
+                  }}
+                  className={`w-full p-4 rounded-lg border-2 transition-colors text-left ${
+                    settings.useOverlay
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                      settings.useOverlay ? 'border-blue-500' : 'border-slate-300'
+                    }`}>
+                      {settings.useOverlay && <div className="w-3 h-3 bg-blue-500 rounded-full" />}
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-800">오버레이 (권장)</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        정해진 시간에 앱이 다른 앱 위에 표시되어 확인을 요구합니다.
+                      </p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const newSettings = { ...settings, useOverlay: false };
+                    setSettings(newSettings);
+                    storage.saveSettings(newSettings);
+                  }}
+                  className={`w-full p-4 rounded-lg border-2 transition-colors text-left ${
+                    !settings.useOverlay
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                      !settings.useOverlay ? 'border-blue-500' : 'border-slate-300'
+                    }`}>
+                      {!settings.useOverlay && <div className="w-3 h-3 bg-blue-500 rounded-full" />}
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-800">푸시 알림</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        정해진 시간에 알람음과 함께 푸시 알림을 전송합니다.
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              {/* 푸시 알림 선택 시 알람음 설정 */}
+              {!settings.useOverlay && (
+                <div className="mt-4 p-3 bg-slate-50 rounded-lg">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">푸시 알림 알람음</label>
+                  <select
+                    value={settings.pushNotificationSound}
+                    onChange={(e) => {
+                      const newSettings = { ...settings, pushNotificationSound: e.target.value };
+                      setSettings(newSettings);
+                      storage.saveSettings(newSettings);
+                    }}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  >
+                    <option value="alarm1">⏰ 클래식</option>
+                    <option value="alarm2">📢 강렬</option>
+                    <option value="alarm3">🎺 팡파레</option>
+                    <option value="alarm4">🔊 비프</option>
+                    <option value="alarm5">🎹 멜로디</option>
+                  </select>
+                </div>
               )}
             </div>
 

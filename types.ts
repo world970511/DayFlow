@@ -21,6 +21,10 @@ export interface AppSettings {
   eveningAlertTime: string; // HH:MM
   notificationsEnabled: boolean; // 알림 활성화 여부
 
+  // [신규] 시간 기반 알림 방식 설정
+  useOverlay: boolean; // true: 다른 앱 위 오버레이, false: 푸시 알림
+  pushNotificationSound: string; // 푸시 알림 시 사용할 알람음 (alarm1-5)
+
   // [변경] 기존 사운드 필드 유지하되 의미 명확화
   focusEndSound: string; // 뽀모도로 집중 종료 알림음 ('ding' | 'chime' | ... | 'custom:file://...')
   breakEndSound: string; // 뽀모도로 휴식 종료 알림음

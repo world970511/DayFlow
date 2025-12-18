@@ -33,6 +33,9 @@ class SoundService {
   // [신규] 백색 소음 루프 재생용 오디오 엘리먼트
   private loopingAudio: HTMLAudioElement | null = null;
 
+  // [신규] 알람음/알림음 재생용 오디오 엘리먼트 (1회 재생)
+  private oneshotAudio: HTMLAudioElement | null = null;
+
   // [신규] 커스텀 사운드 오디오 캐시 (성능 최적화)
   private audioCache: Map<string, HTMLAudioElement> = new Map();
 
@@ -102,6 +105,13 @@ class SoundService {
   // [수정] Web Audio API 대신 실제 오디오 파일 사용
   private async playBuiltinSound(soundId: string) {
     try {
+      // 기존 알람음/알림음이 재생 중이면 멈춤
+      if (this.oneshotAudio) {
+        this.oneshotAudio.pause();
+        this.oneshotAudio.currentTime = 0;
+        this.oneshotAudio = null;
+      }
+
       // 사운드 ID를 기반으로 카테고리 결정
       let category = 'notification';
       if (['alarm1', 'alarm2', 'alarm3', 'alarm4', 'alarm5'].includes(soundId)) {
@@ -110,10 +120,15 @@ class SoundService {
 
       // 오디오 파일 경로 생성
       const audioPath = `/sounds/${category}/${soundId}.mp3`;
-      const audio = new Audio(audioPath);
+      this.oneshotAudio = new Audio(audioPath);
+
+      // 재생 완료 후 참조 해제
+      this.oneshotAudio.onended = () => {
+        this.oneshotAudio = null;
+      };
 
       // 재생
-      await audio.play();
+      await this.oneshotAudio.play();
     } catch (error) {
       console.error(`내장 사운드 재생 실패 (${soundId}):`, error);
       // 폴백: 오디오 파일이 없으면 Web Audio API 사용
