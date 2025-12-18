@@ -1,5 +1,7 @@
 <div align="center">
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+바이브 코딩 테스트용.</br>
+구글 ai 스튜디오 & claude code 활용.
 </div>
 
 # DayFlow
