@@ -67,21 +67,8 @@
 ## APK 다운로드(For Android)
 **apk 폴더에서 다운받아 주세요.**
 
-## 커스텀 사운드 추가하기
-APK에 내장할 사운드 파일을 추가하려면 [SOUND_FILES_GUIDE.md](SOUND_FILES_GUIDE.md)를 참고하세요.
-
-### 빠른 가이드
-1. `public/sounds/` 폴더에 MP3 파일 추가:
-   - `whitenoise/`: ocean.mp3, rain.mp3, forest.mp3, cafe.mp3, fire.mp3
-   - `notification/`: ding.mp3, chime.mp3, bell.mp3, triplet.mp3, soft.mp3
-   - `alarm/`: alarm1.mp3, alarm2.mp3, alarm3.mp3, alarm4.mp3, alarm5.mp3
-
-2. APK 빌드:
-   ```bash
-   npm run build
-   npx cap sync android
-   npx cap open android
-   ```
+## 커스텀 사운드 듣기/ 다운받기
+유튜브: https://youtube.com/@dayflow-sound?si=upDOEymAtnO-07Fh
 
 **참고**: 사운드 파일이 없어도 Web Audio API 폴백으로 작동합니다.
 
